@@ -1,0 +1,61 @@
+minus1=-1;
+d=3;% diameter of the buoy
+c_d=1.2;%coefficient of drag
+rho=1020;% density of sea water
+m=6321.41;% mass of buoy calculated
+g=9.8;%gravity
+A_c=pi*d*d*0.25;% area of intersection of buoy with the water
+rho_al=2700;% density of aluminium rods
+m_al=500;% mass of aluminium rod on top of buoy
+m=m+m_al;% total floating mass in a buoy
+H_s=0.7;% significant height of ways in puducherry
+buoy_lenght=5.1;% length of the cylindrical buoy
+T_e=6.3;% the energy period of waves in puducherry
+lam=12.6;%approximate wave speed for puducherry is 2m/s ,therefore lambda is speed * Te
+draft_l=0.78;% lenght of buoy in water
+omega= (2* pi)/T_e;% angular frequency of the buoy
+m33=0.167*rho*d*d*d;% added mass during oscillation
+k=(2*pi)/lam;%wave number
+c33=rho*g*A_c;%restoring coefficient 
+omega_n=sqrt(c33/(m+m33));%natural frequency of the buoy
+ratio=omega/omega_n;
+alpha= (8/(3*pi*T_e))*rho*c_d*draft_l*d;% alpha,beta, gamma and delta are just a few constants to make calculations ahead easier
+beta= 0.5/(omega_n*(m+m33));
+gamma= c33*c33*(1-(omega*omega))*(1-(omega*omega));
+delta= c33*c33*4*omega*omega;
+
+% the following calcualtion is of the wave excitation force i.e. reference
+% 19 of the report, these calculations involve bessel functions and
+% integration to infinity which has been approximated ahead with the for
+% loop to 900 because terms after that our considerably negligible
+%the wave excitation force is varied for different points of the cylinder
+%so its average complex value is taken
+const=-11*pi*rho*omega*d*sqrt(2/pi);
+j0=besselj(0,k*d*0.5);
+j1=besselj(1,k*d*0.5);
+y0=bessely(0,k*d*0.5);
+y1=bessely(1,k*d*0.5);
+q_real= -1*besselj(1,k*d*0.5)/((j1*j1)+(y1*y1)) *(j0*j1)+(y1*y0);
+q_imaginary= -1*besselj(1,k*d*0.5)/((j1*j1)+(y1*y1))*(j1*y0-j0*y1);
+
+f_avg_real=0;
+f_avg_imaginary=0;
+for x=-1.5:0.1:1.5
+    imaginary_const=const*g*H_s*0.5*sqrt(2/pi)/omega*(j0+q_imaginary)*exp(-1*k*draft_l)*k/((x*x)+(k*k));
+    real_const=const*g*H_s*0.5*sqrt(2/pi)/omega*q_real*exp(-1*k*draft_l)*k/((x*x)+(k*k));
+    integrand_imaginary=@(c) imaginary_const.*(besseli(1,c*x)./besseli(0,c*d*0.5))./c;
+    integrand_real=@(c) real_const.*(besseli(1,c*x)./besseli(0,c*d*0.5))./c;
+    f_excitation_real=0;
+    f_excitation_imaginary=0;
+    for r=1:900
+    f_excitation_real=f_excitation_real+integrand_real(r*0.01)*0.01;
+    f_excitation_imaginary=f_excitation_imaginary+integrand_imaginary(r*0.01)*0.01;
+    end
+f_avg_real= f_avg_real+abs (f_excitation_real)/30; 
+f_avg_imaginary=f_avg_imaginary+abs(f_excitation_imaginary)/30;
+%the values of forces sort of stabilize here after looping for 100000
+%times now lets just avergae it out 
+end
+% in order to see the output of the displacement of the buoy with time in
+% the simulink model ,click on run and then the scope block connected to
+% the y signal
